@@ -6,37 +6,30 @@ import (
 	"io"
 	"net/http"
 	"net/url"
+	"os"
 	"strings"
 
 	"github.com/mark3labs/mcp-go/mcp"
-	"github.com/mark3labs/mcp-go/server"
 )
 
-type ApplovinToolkit struct {
-	ApiKey string
+func GetApiKey() string {
+	return os.Getenv("APPLOVIN_API_KEY")
 }
 
-func (a *ApplovinToolkit) Setup(serv *server.MCPServer) {
-	serv.AddTool(a.CohortRequest())
-}
-
-func NewAgent(apiKey string) *ApplovinToolkit {
-	return &ApplovinToolkit{
-		ApiKey: apiKey,
-	}
-}
-
-func (a *ApplovinToolkit) CohortRequest() (mcp.Tool, server.ToolHandlerFunc) {
-	return mcp.NewTool(
+func NewCohortRequestCapability() Capability {
+	return Capability{
+		Tool: mcp.NewTool(
 			"cohort_request",
-			mcp.WithDescription("cohort_Request_description_here"),
+			mcp.WithDescription("sends a cohort request to AppLovin Max MCP"),
+			mcp.WithString("api_key", mcp.Description("API Key")),
+			mcp.WithString("sort_day", mcp.Description("Sort type"), mcp.Enum("ASC", "DESC")),
 		),
-		func(ctx context.Context, callReq mcp.CallToolRequest) (*mcp.CallToolResult, error) {
+		Handler: func(ctx context.Context, toolRequest mcp.CallToolRequest) (*mcp.CallToolResult, error) {
 			queryParameters := url.Values{}
-			queryParameters.Add("api_key", a.ApiKey)
+			queryParameters.Add("api_key", GetApiKey())
 			queryParameters.Add("sort_day", "ASC")
 
-			addQueryParametersIfGiven := func(args map[string]interface{}, objectNames ...string) {
+			addQueryParametersIfGiven := func(args map[string]any, objectNames ...string) {
 				for _, objName := range objectNames {
 					if objValue, ok := args[objName].(string); ok {
 						queryParameters.Add(objName, strings.ToLower(objValue))
@@ -44,7 +37,7 @@ func (a *ApplovinToolkit) CohortRequest() (mcp.Tool, server.ToolHandlerFunc) {
 				}
 			}
 
-			args := callReq.GetArguments()
+			args := toolRequest.GetArguments()
 
 			addQueryParametersIfGiven(args, "start", "end", "format")
 
@@ -73,7 +66,7 @@ func (a *ApplovinToolkit) CohortRequest() (mcp.Tool, server.ToolHandlerFunc) {
 				}
 			}
 
-			if filters, ok := args["filters"].(map[string]interface{}); ok {
+			if filters, ok := args["filters"].(map[string]any); ok {
 				checkFilterAndApply(filters, "package_name", "platform", "country")
 			}
 
@@ -109,5 +102,6 @@ func (a *ApplovinToolkit) CohortRequest() (mcp.Tool, server.ToolHandlerFunc) {
 			}
 
 			return mcp.NewToolResultText(string(body)), nil
-		}
+		},
+	}
 }

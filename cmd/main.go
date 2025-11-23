@@ -13,6 +13,9 @@ func main() {
 		server.WithToolCapabilities(true),
 	)
 
-	toolkit := internal.NewAgent("someKey")
-	toolkit.Setup(mcpServer)
+	internal.AppendCapability(mcpServer, internal.NewCohortRequestCapability())
+	err := server.ServeStdio(mcpServer)
+	if err != nil {
+		panic(err)
+	}
 }
