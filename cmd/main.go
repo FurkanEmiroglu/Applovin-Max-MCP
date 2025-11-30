@@ -13,7 +13,10 @@ func main() {
 		server.WithToolCapabilities(true),
 	)
 
-	internal.AppendCapability(mcpServer, internal.NewCohortRequestCapability())
+	internal.AppendCapability(mcpServer,
+		internal.NewCohortRequestCapability(),
+	)
+
 	err := server.ServeStdio(mcpServer)
 	if err != nil {
 		panic(err)

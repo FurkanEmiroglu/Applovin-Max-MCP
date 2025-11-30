@@ -12,17 +12,47 @@ import (
 	"github.com/mark3labs/mcp-go/mcp"
 )
 
+var allowed_ranges []int = []int{0, 1, 2, 3, 4, 5, 6, 7, 10, 14, 18, 21, 24, 27, 30, 45}
+
 func GetApiKey() string {
 	return os.Getenv("APPLOVIN_API_KEY")
 }
 
 func NewCohortRequestCapability() Capability {
 	return Capability{
-		Tool: mcp.NewTool(
-			"cohort_request",
-			mcp.WithDescription("sends a cohort request to AppLovin Max MCP"),
-			mcp.WithString("api_key", mcp.Description("API Key")),
-			mcp.WithString("sort_day", mcp.Description("Sort type"), mcp.Enum("ASC", "DESC")),
+		Tool: mcp.NewTool("cohort_request",
+			mcp.WithDescription(
+				"sends a cohort request to AppLovin Max MCP",
+			),
+			mcp.WithString("sort_day",
+				mcp.Description("Sort type"),
+				mcp.Enum("ASC", "DESC"),
+				mcp.Required(),
+			),
+			mcp.WithString("start",
+				mcp.Description("YYYY-MM-DD formatted starting date."),
+			),
+			mcp.WithString("end",
+				mcp.Description("YYYY-MM-DD formatted ending date."),
+			),
+			mcp.WithString("format",
+				mcp.Description("output format"),
+				mcp.Enum("json", "csv"),
+			),
+			mcp.WithArray("columns",
+				mcp.Description("which columns to report"),
+				mcp.DefaultArray([]string{"day", "installs"}),
+				mcp.WithStringEnumItems([]string{"day", "installs", "country", "inter_rpi", "banner_rpi", "reward_rpi", "all_rpi", "platform", "package_name"}),
+			),
+			mcp.WithString("filter_country",
+				mcp.Description("country filter, two letter iso code"),
+			),
+			mcp.WithString("filter_package_name",
+				mcp.Description("package_name filter"),
+			),
+			mcp.WithString("filter_platform",
+				mcp.Description("platform filter"),
+			),
 		),
 		Handler: func(ctx context.Context, toolRequest mcp.CallToolRequest) (*mcp.CallToolResult, error) {
 			queryParameters := url.Values{}
@@ -41,19 +71,23 @@ func NewCohortRequestCapability() Capability {
 
 			addQueryParametersIfGiven(args, "start", "end", "format")
 
-			if breakdowns, ok := args["breakdowns"].([]any); ok {
-				breakdownList := make([]string, len(breakdowns))
+			if columns, ok := args["columns"].([]any); ok {
+				columnList := make([]string, len(columns))
 
-				for i, v := range breakdowns {
+				for i, v := range columns {
 					str, ok := v.(string)
 					if !ok {
 						continue
 					}
 
-					breakdownList[i] = str
+					if strings.Contains(str, "_rpi") {
+						continue
+					}
+
+					columnList[i] = str
 				}
 
-				queryParameters.Add("columns", strings.ToLower(strings.Join(breakdownList, ",")))
+				queryParameters.Add("columns", strings.ToLower(strings.Join(columnList, ",")))
 			}
 
 			checkFilterAndApply := func(filtersObject map[string]any, filterNames ...string) {
@@ -70,7 +104,7 @@ func NewCohortRequestCapability() Capability {
 				checkFilterAndApply(filters, "package_name", "platform", "country")
 			}
 
-			url, err := url.Parse("https://r.applovin.com/maxReport")
+			url, err := url.Parse("https://r.applovin.com/maxCohort")
 
 			if err != nil {
 				return mcp.NewToolResultErrorf("error while parsing max report url: %v", err), nil
