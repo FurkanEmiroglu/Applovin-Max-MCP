@@ -14,6 +14,7 @@ func main() {
 	)
 
 	internal.AppendCapability(mcpServer,
+		internal.NewRevenueReportCapability(),
 		internal.NewCohortRequestCapability(),
 	)
 
